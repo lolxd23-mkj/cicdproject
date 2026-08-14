@@ -20,3 +20,7 @@ def get_products():
         {"id": 2, "name": "Keyboard", "price": 80},
         {"id": 3, "name": "Mouse", "price": 40},
     ]
+
+@app.get("/version")
+def version():
+    return {"version": "1.0.0"}
