@@ -23,4 +23,4 @@ def get_products():
 
 @app.get("/version")
 def version():
-    return {"version": "Br0ken"}
+    return {"version": "1.0.0"}
