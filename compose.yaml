@@ -1,0 +1,7 @@
+services: #header that wraps the whole content
+  api: #service name
+    build: #build the image
+      context: . #current dir
+    container_name: ecommerce-api
+    ports: #yall already know
+      - "8000:8000"
