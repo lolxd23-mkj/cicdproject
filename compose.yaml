@@ -5,3 +5,24 @@ services: #header that wraps the whole content
     container_name: ecommerce-api
     ports: #yall already know
       - "8000:8000"
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ecommerce
+      DATABASE_USER: ecommerce
+      DATABASE_PASSWORD: 12345
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16
+    container_name: ecommerce-postgres
+    environment:
+      POSTGRES_DB: ecommerce
+      POSTGRES_USER: ecommerce
+      POSTGRES_PASSWORD: 12345
+    volumes:
+      - ecommerce-db-data:/var/lib/postgresql/data
+
+volumes:
+  ecommerce-db-data:
