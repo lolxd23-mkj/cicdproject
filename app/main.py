@@ -1,6 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI,Depends
+from sqlalchemy.orm import Session
 
-from db import Base, engine, SessionLocal
+from db import Base, engine, SessionLocal, get_db
 from models import Product
 
 
@@ -20,23 +21,18 @@ def health():
 
 
 @app.get("/products")
-def get_products():
-    db = SessionLocal()
+def get_products(db: Session = Depends(get_db)):
+    products = db.query(Product).all()
 
-    try:
-        products = db.query(Product).all()
+    return [
+         {
+             "id": product.id,
+             "name": product.name,
+             "price": product.price,
+         }
+         for product in products
+    ]
 
-        return [
-            {
-                "id": product.id,
-                "name": product.name,
-                "price": product.price,
-            }
-            for product in products
-        ]
-
-    finally:
-        db.close()
 
 @app.get("/version")
 def version():
