@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from db import Base, engine
+from db import Base, engine, SessionLocal
 from models import Product
 
 
@@ -21,11 +21,22 @@ def health():
 
 @app.get("/products")
 def get_products():
-    return [
-        {"id": 1, "name": "Laptop", "price": 1200},
-        {"id": 2, "name": "Keyboard", "price": 80},
-        {"id": 3, "name": "Mouse", "price": 40},
-    ]
+    db = SessionLocal()
+
+    try:
+        products = db.query(Product).all()
+
+        return [
+            {
+                "id": product.id,
+                "name": product.name,
+                "price": product.price,
+            }
+            for product in products
+        ]
+
+    finally:
+        db.close()
 
 @app.get("/version")
 def version():
