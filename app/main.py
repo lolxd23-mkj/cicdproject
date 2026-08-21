@@ -1,6 +1,6 @@
 from fastapi import FastAPI,Depends
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from fastapi import HTTPException
 
 from db import Base, engine, SessionLocal, get_db
@@ -42,7 +42,7 @@ def version():
 
 class ProductCreate(BaseModel):
     name: str
-    price: float
+    price: float = Field(gt=0)
 
 
 @app.post("/products")

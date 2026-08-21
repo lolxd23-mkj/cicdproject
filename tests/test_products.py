@@ -67,3 +67,37 @@ def test_create_product_invalid_price():
     )
 
     assert response.status_code == 422
+
+def test_create_product_zero_price():
+    response = client.post(
+        "/products",
+        json={
+            "name": "Free Monitor",
+            "price": 0
+        }
+    )
+
+    assert response.status_code == 422
+
+def test_create_product_negative_price():
+    response = client.post(
+        "/products",
+        json={
+            "name": "Broken Monitor",
+            "price": -1
+        }
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_product_minimum_valid_price():
+    response = client.post(
+        "/products",
+        json={
+            "name": "Cheap Monitor",
+            "price": 0.01
+        }
+    )
+
+    assert response.status_code == 200
