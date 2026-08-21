@@ -19,3 +19,51 @@ def test_get_nonexistent_product():
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Product not found"}
+
+def test_create_product():
+    response = client.post(
+        "/products",
+        json={
+            "name": "PYTEST_PRODUCT",
+            "price": 999
+        }
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert "id" in data
+    assert data["name"] == "PYTEST_PRODUCT"
+    assert data["price"] == 999
+
+def test_create_product():
+    response = client.post(
+        "/products",
+        json={
+            "name": "PYTEST_PRODUCT",
+            "price": 999
+        }
+    )
+
+    print("STATUS:", response.status_code)
+    print("RESPONSE:", response.json())
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert "id" in data
+    assert data["name"] == "PYTEST_PRODUCT"
+    assert data["price"] == 999
+
+def test_create_product_invalid_price():
+    response = client.post(
+        "/products",
+        json={
+            "name": "Monitor",
+            "price": "not-a-number"
+        }
+    )
+
+    assert response.status_code == 422
