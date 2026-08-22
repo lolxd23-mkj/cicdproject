@@ -3,11 +3,9 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 from fastapi import HTTPException
 
-from db import Base, engine, SessionLocal, get_db
+from db import SessionLocal, get_db
 from models import Product
 
-
-Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="DevOps E-commerce API")
 

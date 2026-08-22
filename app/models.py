@@ -10,4 +10,4 @@ class Product(Base):
     price = Column(Float, nullable=False)
     description = Column(String, nullable=True)
     stock = Column(Integer, nullable=False, default=0)
-    category = Column(String, nullable=True)
+    
