@@ -11,6 +11,9 @@ services: #header that wraps the whole content
       DATABASE_NAME: ecommerce
       DATABASE_USER: ecommerce
       DATABASE_PASSWORD: 12345
+    volumes:
+      - ./migrations:/app/migrations
+
     depends_on:
       postgres:
         condition: service_healthy
