@@ -61,5 +61,6 @@ jobs:
           DATABASE_NAME: ecommerce_test
           DATABASE_USER: ecommerce
           DATABASE_PASSWORD: 12345
+          PYTHONPATH: app
         run: |
           pytest -v
