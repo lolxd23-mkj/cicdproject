@@ -42,3 +42,13 @@ jobs:
         run: |
           docker push ghcr.io/${{ github.repository }}:${{ github.event.workflow_run.head_sha }}
           docker push ghcr.io/${{ github.repository }}:latest
+  deploy:
+    needs: build-and-push
+    runs-on: self-hosted
+    steps:
+      - name: Pull and restart containers
+        run: |
+          cd ~/cicdproject
+          docker compose -f docker-compose.prod.yml pull
+          docker compose -f docker-compose.prod.yml up -d
+          docker image prune -f
