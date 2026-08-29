@@ -1,0 +1,62 @@
+remotecfg {
+  url            = "{{ gcloud_fm_url }}"
+  id             = "{{ inventory_hostname }}"
+  poll_frequency = "60s"
+  attributes     = encoding.from_json(coalesce(``, `{}`))
+
+  basic_auth {
+    username = "{{ gcloud_fm_hosted_id }}"
+    password = sys.env("GCLOUD_RW_API_KEY")
+  }
+}
+
+prometheus.remote_write "metrics_service" {
+  endpoint {
+    url = "{{ gcloud_hosted_metrics_url }}"
+
+    basic_auth {
+      username = "{{ gcloud_hosted_metrics_id }}"
+      password = sys.env("GCLOUD_RW_API_KEY")
+    }
+  }
+}
+
+loki.write "grafana_cloud_loki" {
+  endpoint {
+    url = "{{ gcloud_hosted_logs_url }}"
+
+    basic_auth {
+      username = "{{ gcloud_hosted_logs_id }}"
+      password = sys.env("GCLOUD_RW_API_KEY")
+    }
+  }
+}
+
+prometheus.exporter.unix "node" { }
+
+prometheus.scrape "node_metrics" {
+  targets    = prometheus.exporter.unix.node.targets
+  forward_to = [prometheus.remote_write.metrics_service.receiver]
+}
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "docker_logs" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+}
+
+loki.source.docker "containers" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.containers.targets
+  labels        = {"job" = "docker"}
+  relabel_rules = discovery.relabel.docker_logs.rules
+  forward_to    = [loki.write.grafana_cloud_loki.receiver]
+}

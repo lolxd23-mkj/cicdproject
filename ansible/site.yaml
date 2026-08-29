@@ -1,0 +1,224 @@
+---
+- name: Configure cicdproject server
+  hosts: cicdproject
+  become: true
+  vars:
+    repo_url: "https://github.com/lolxd23-mkj/cicdproject.git"
+    repo_dest: "/home/ubuntu/cicdproject"
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install prerequisite packages
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+          - git
+          - unzip
+        state: present
+
+    - name: Add Docker's official GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker apt repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+        filename: docker
+
+    - name: Install Docker Engine and Compose plugin
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+
+    - name: Ensure Docker service is running and enabled
+      systemd:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Add ubuntu user to docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: true
+
+    - name: Clone the cicdproject repo
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ repo_dest }}"
+        version: main
+        force: false
+      become_user: ubuntu
+
+    - name: Reset ssh connection to apply docker group membership
+      meta: reset_connection
+ # ---------------------------------------------------------------
+    # GitHub Actions self-hosted runner
+    # Secrets (github_pat) are passed via --extra-vars, never stored here.
+    # ---------------------------------------------------------------
+ 
+    - name: Get latest GitHub Actions runner release info
+      uri:
+        url: "https://api.github.com/repos/actions/runner/releases/latest"
+        return_content: true
+      register: runner_release
+      run_once: true
+ 
+    - name: Set runner version fact
+      set_fact:
+        runner_version: "{{ runner_release.json.tag_name | regex_replace('^v', '') }}"
+ 
+    - name: Create actions-runner directory
+      file:
+        path: /home/ubuntu/actions-runner
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0755"
+ 
+    - name: Download the runner tarball
+      get_url:
+        url: "https://github.com/actions/runner/releases/download/v{{ runner_version }}/actions-runner-linux-x64-{{ runner_version }}.tar.gz"
+        dest: "/home/ubuntu/actions-runner/actions-runner.tar.gz"
+        owner: ubuntu
+        group: ubuntu
+        mode: "0644"
+ 
+    - name: Extract the runner tarball
+      unarchive:
+        src: /home/ubuntu/actions-runner/actions-runner.tar.gz
+        dest: /home/ubuntu/actions-runner
+        remote_src: true
+        owner: ubuntu
+        group: ubuntu
+ 
+    - name: Fetch a fresh runner registration token from GitHub
+      uri:
+        url: "https://api.github.com/repos/{{ github_owner }}/{{ github_repo }}/actions/runners/registration-token"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ github_pat }}"
+          Accept: "application/vnd.github+json"
+        status_code: 201
+        return_content: true
+      register: reg_token_response
+      no_log: true
+      run_once: true
+ 
+    - name: Check if runner is already configured
+      stat:
+        path: /home/ubuntu/actions-runner/.runner
+      register: runner_configured
+ 
+    - name: Configure the runner (unattended)
+      command: >
+        ./config.sh --unattended
+        --url https://github.com/{{ github_owner }}/{{ github_repo }}
+        --token {{ reg_token_response.json.token }}
+        --name {{ inventory_hostname }}
+        --labels self-hosted,ec2,ansible-managed
+        --work _work
+      args:
+        chdir: /home/ubuntu/actions-runner
+      become_user: ubuntu
+      no_log: true
+      when: not runner_configured.stat.exists
+ 
+    - name: Install the runner as a systemd service
+      command: ./svc.sh install ubuntu
+      args:
+        chdir: /home/ubuntu/actions-runner
+      when: not runner_configured.stat.exists
+ 
+    - name: Start and enable the runner service
+      command: ./svc.sh start
+      args:
+        chdir: /home/ubuntu/actions-runner
+      when: not runner_configured.stat.exists
+ 
+    # ---------------------------------------------------------------
+    # Grafana Alloy (metrics + logs shipping to Grafana Cloud)
+    # Secrets (gcloud_rw_api_key) are passed via --extra-vars.
+    # ---------------------------------------------------------------
+ 
+    - name: Add Grafana apt GPG key
+      apt_key:
+        url: https://apt.grafana.com/gpg.key
+        state: present
+ 
+    - name: Add Grafana apt repository
+      apt_repository:
+        repo: "deb https://apt.grafana.com stable main"
+        state: present
+        filename: grafana
+ 
+    - name: Install Grafana Alloy
+      apt:
+        name: alloy
+        state: present
+        update_cache: true
+ 
+    - name: Deploy Alloy config from template
+      template:
+        src: config.alloy.j2
+        dest: /etc/alloy/config.alloy
+        owner: root
+        group: alloy
+        mode: "0640"
+      notify: Restart alloy
+ 
+    - name: Create systemd override directory for Alloy
+      file:
+        path: /etc/systemd/system/alloy.service.d
+        state: directory
+        mode: "0755"
+ 
+    - name: Inject GCLOUD_RW_API_KEY as an environment variable, not in the config file
+      copy:
+        content: |
+          [Service]
+          Environment="GCLOUD_RW_API_KEY={{ gcloud_rw_api_key }}"
+        dest: /etc/systemd/system/alloy.service.d/env.conf
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+      notify:
+        - Reload systemd
+        - Restart alloy
+ 
+    - name: Add alloy user to docker group
+      user:
+        name: alloy
+        groups: docker
+        append: true
+      notify: Restart alloy
+ 
+    - name: Ensure alloy service is enabled and started
+      systemd:
+        name: alloy
+        state: started
+        enabled: true
+ 
+  handlers:
+    - name: Reload systemd
+      systemd:
+        daemon_reload: true
+ 
+    - name: Restart alloy
+      systemd:
+        name: alloy
+        state: restarted
