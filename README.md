@@ -12,6 +12,7 @@ A concise breakdown of the DevOps workflow, architecture, tool interactions, and
 - **CI/CD:** GitHub Actions & GitHub Container Registry (GHCR)
 - **Cloud & Deployment:** AWS EC2 with Self-Hosted Runner (Automated CD)
 - **Observability:** Grafana Cloud, Grafana Alloy, Prometheus (Metrics), Loki (Logs)
+Added small demo on IaC with Terraform and Ansible
 
 Note: There are some errors in the making of this and all will be commented in each commits.
 ---
