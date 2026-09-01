@@ -4,3 +4,5 @@
 .terraform.lock.hcl
 terraform.tfvars
 crash.log
+*.pem
+*.pem:Zone.Identifier
